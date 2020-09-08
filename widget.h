@@ -46,11 +46,17 @@
 #include <boost/multiprecision/miller_rabin.hpp>
 #include <boost/format.hpp>
 
-using std::cout; using std::wcout; using std::endl;
+using std::cout; using std::wcout; using std::endl; using std::flush;
 using std::array; using std::vector; using std::string; using std::wstring; using std::to_string;
 using namespace std::literals::string_literals;
-using hr = std::chrono::high_resolution_clock;
 using namespace std::chrono;
+using hr = high_resolution_clock;
+namespace mp = boost::multiprecision;
+using Bint = mp::mpz_int;
+using Real = mp::mpf_float;
+using namespace std::chrono_literals;
+using uint = unsigned int;
+
 
 class Widget : public QWidget, public Ui::Widget {
     Q_OBJECT
@@ -81,7 +87,6 @@ class Widget : public QWidget, public Ui::Widget {
 		QTimer* ThProgress;
 		string logs;
         std::thread mainThread;
-		std::array<QTextEdit*, 16> Ths;
 		string Th_string;
 
 };

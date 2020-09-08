@@ -2,100 +2,6 @@
 #define PRIMENUMBER_HPP_
 #include "widget.h"
 
-namespace mp = boost::multiprecision;
-using Bint = mp::mpz_int;
-using Real = mp::mpf_float;
-using std::cout; using std::endl; using std::flush; using std::string; using std::to_string;
-using namespace std::chrono_literals;
-using uint = unsigned int;
-
-constexpr auto INDEX_MAX = 10;
-constexpr auto P_START = 3; //43,112,609;
-
-class XorShiftBint {
-    private:
-        struct dictionary { Bint x; Bint y; Bint z; Bint w; };
-        Bint x;
-        Bint y;
-        Bint z;
-        Bint w;
-        Bint t;
-
-    public:
-        static const struct dictionary defaults;
-        Bint randCount = 0;
-        struct dictionary seeds;
-
-        XorShiftBint(
-            Bint w = time(nullptr),
-            Bint x = 0,
-            Bint y = 0,
-            Bint z = 0
-        ) {
-            x = x != 0 ? x : w << 13;
-            y = y != 0 ? y : (w >> 9) ^ (x << 6);
-            z = z != 0 ? z : y >> 7;
-            seeds = { x,y,z,w };
-            this->w = w; this->x = x; this->y = y; this->z = z;
-        }
-
-        Bint rand() {
-            randCount++;
-            Bint t = x ^ (x << 11);
-            x = y;
-            y = z;
-            z = w;
-            return w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
-        }
-
-        Bint randInt(Bint min = 0, Bint max = UINT64_MAX) {
-            return rand() % (max - min + 1) + min;
-        }
-
-        Real randFloat(Real min = 0, Real max = 1) {
-            return Real(rand() % 0xFFFF) / 0xFFFF * (max - min) + min;
-        }
-
-        template<typename T>
-        T* shuffle(const T* _arr, T* arr, int arrLength) {
-            for (int i = 0; i < arrLength; i++) arr[i] = _arr[i];
-            for (int i = 0; i <= arrLength - 2; i++) {
-                int r = randInt(i, arrLength - 1);
-                T tmp = arr[i];
-                arr[i] = arr[r];
-                arr[r] = tmp;
-            }
-            return arr;
-        }
-
-        template<typename T>
-        std::vector<T> shuffle(std::vector<T> arr) {
-            for (int i = 0; i <= arr.size() - 2; i++) {
-                int r = randInt(i, arr.size() - 1);
-                T tmp = arr[i];
-                arr[i] = arr[r];
-                arr[r] = tmp;
-            }
-            return arr;
-        }
-
-        static inline XorShiftBint defaultSeed() {
-            return XorShiftBint(
-                XorShiftBint::defaults.w,
-                XorShiftBint::defaults.x,
-                XorShiftBint::defaults.y,
-                XorShiftBint::defaults.z
-            );
-        }
-};
-
-const struct XorShiftBint::dictionary XorShiftBint::defaults = {
-    123456789,
-    362436069,
-    521288629,
-    88675123
-};
-
 template <typename T>
 string formatNumber(T num) noexcept {
     std::vector<T> sepnum;
@@ -172,56 +78,6 @@ namespace my {
         return res;
     }
 
-    inline bool IsPrimeMillerRabin(Bint p, Bint k = 10) noexcept {
-        if (p == 2) return true;                    //  2は素数
-        if (p < 2 || !( p & 1 ))  return false;     //  2よりも小さいまたは（2以外の）偶数なら計算するまでもなし
-
-        //  p - 1 = pow( 2, s ) * d, s > 0 において、最初の奇数dを見つける。
-        Bint d = p - 1;
-        while (!( d & 1 )) {
-            d >>= 1;
-        }
-
-        XorShiftBint ram(time(nullptr) ^ p);
-        for (int i = 0; i < 20; ++i) ram.rand();
-        for (int n = 0; n != k; ++n) {
-            Bint a = ram.randInt(0, p - 2) + 1;
-            Bint t = d; 
-            Bint y = my::modPow(a, t, p);
-            while(t != p - 1 && y != 1 && y != p - 1) {
-                y = y * y % p;
-                t <<= 1;
-            }
-            if (y != p - 1 && !(t & 1)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    inline bool IsPrimeFast(const Bint& num) noexcept {
-        if (num == 2) return true;
-        if ((num < 2) || !(num & 1)) return false;
-
-        Bint sqrtNum = mp::sqrt(num);
-        for (Bint i = 3; i <= sqrtNum; i += 2) {
-            if (num % i == 0)  return false;
-        }
-
-        return true;
-    }
-
-    inline bool IsPrime(const Bint& num) noexcept {
-        if (num == 2) return true;
-        if ((num < 2) || !(num & 1)) return false;
-
-        Bint sqrtNum = mp::sqrt(num);
-        for (Bint i = 3; i <= sqrtNum; i += 2) {
-            if (num % i == 0)  return false;
-        }
-        return true;
-    }
-
     inline string puts(const Bint& mer, const Bint& p, const Bint& index) noexcept {
         const auto mes = mer.str();
         const auto ps = formatNumber(p);
@@ -245,6 +101,8 @@ namespace my {
     }
 }
 
+constexpr unsigned long long P_START = 3;//43'112'609;
+
 void Lucas(Widget* ui) noexcept {
     std::queue<Bint> Mers;
     std::queue<unsigned long> p;
@@ -253,12 +111,12 @@ void Lucas(Widget* ui) noexcept {
 
     Mers.push(3);
     p.push(2);
-    #pragma omp parallel sections firstprivate(INDEX_MAX, P_START) num_threads(2)
+    #pragma omp parallel sections num_threads(2)
     {
         #pragma omp section
         {
-            for (unsigned long p_ = P_START; p_ < ULONG_MAX; p_ += 2) {
-                if (!mp::miller_rabin_test(p_, 5)) continue;
+            for (unsigned long long p_ = P_START; p_ < ULONG_MAX; p_ += 2) {
+                if (!mp::miller_rabin_test(p_, 3)) continue;
                 if ((p_ + 1) % 10 == 0) ui->F5Th(formatNumber(p_));
                 
                 Bint m = (Bint(1) << p_) - 1;
