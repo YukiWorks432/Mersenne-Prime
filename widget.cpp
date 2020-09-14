@@ -8,8 +8,34 @@ Widget::Widget(QWidget *parent) : QWidget(parent), ThProgress(new QTimer) {
     addLOG("calculation start");
 	connect(this, SIGNAL(changeLOG()), this, SLOT(updateLOG()));
 	connect(ThProgress, SIGNAL(timeout()), this, SLOT(updateTh()));
+	connect(Priority, SIGNAL(currentIndexChanged(int)), this, SLOT(updatePriority(int)));
+	connect(ReButton, SIGNAL(clicked()), this, SLOT(SetThreads()));
 	
+	std::ifstream tdata(Data_File_Name, std::ios::in | std::ios::binary);
+	if (tdata) {
+		string tnums;
+		tdata >> tnums;
+		ThreadNums = std::stoi(tnums);
+	} else {
+		ThreadNums = omp_get_max_threads();
+	}
+
+	PriorityClass = {
+		IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS, ABOVE_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS
+	};
+	Ths = {
+		Th_1, Th_2, Th_3, Th_4, Th_5, Th_6, Th_7, Th_8,
+		Th_9, Th_10, Th_11, Th_12, Th_13, Th_14, Th_15, Th_16
+	};
+	Th_string.resize(16);
+	for (int i = 0; i < 16; ++i) {
+		Th_string[i] = "\0";
+	}
+
+	ThreadNum->setText(QString::number(ThreadNums));
+	ThreadNum->update();
 	updateTh();
+	updatePriority(PriorityClass[0]);
 	ThProgress->start(10);
     mainThread = std::thread(Lucas, this);
 }
@@ -47,10 +73,24 @@ void Widget::updateLOG() noexcept {
 	LOG->update();
 }
 
-void Widget::F5Th(const string& s) noexcept {
-	Th_string = s;
+void Widget::F5Th(const string& s, const int id) noexcept {
+	Th_string[id] = s;
 }
 
 void Widget::updateTh() noexcept {
-	Th->setText(QString::fromStdString(Th_string));
+	for (int i = 0; i < 16; ++i) {
+		Ths[i]->setText(QString::fromStdString(std::to_string(i) + " :\n" + Th_string[i]));
+	}
+}
+
+void Widget::updatePriority(int num) noexcept {
+	HANDLE hP = GetCurrentProcess();
+	SetPriorityClass(hP, PriorityClass[num]);
+}
+
+void Widget::SetThreads() noexcept {
+	std::ofstream tdata(Data_File_Name, std::ios::out | std::ios::binary);
+	if (tdata) {
+		tdata << ThreadNum->toPlainText().toStdString() << std::endl;
+	}
 }

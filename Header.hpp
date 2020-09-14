@@ -101,23 +101,27 @@ namespace my {
     }
 }
 
-constexpr unsigned long long P_START = 3;//43'112'609;
+constexpr unsigned long long P_START    = 3;                //43'112'609;
+constexpr unsigned long long P_END      = 82'589'933 + 16;  //82'589'933 is 51st, according to Wikipedia.
 
 void Lucas(Widget* ui) noexcept {
     std::queue<Bint> Mers;
     std::queue<unsigned long> p;
+    constexpr unsigned long long MAX_MEMORY = 1024ull * 1024ull * 1024ull * 32ull;
 
     omp_set_nested(true);
 
     Mers.push(3);
     p.push(2);
-    #pragma omp parallel sections num_threads(2)
+    #pragma omp parallel sections num_threads(3)
     {
         #pragma omp section
         {
-            for (unsigned long long p_ = P_START; p_ < ULONG_MAX; p_ += 2) {
-                if (!mp::miller_rabin_test(p_, 3)) continue;
-                if ((p_ + 1) % 10 == 0) ui->F5Th(formatNumber(p_));
+            omp_set_num_threads(ui->getThreadNums());
+            #pragma omp parallel for schedule(dynamic)
+            for (unsigned long long p_ = P_START; p_ < P_END; p_ += 2) {
+                if (ui->endFlag) continue;
+                if ((p_ + 1) % 10 == 0) ui->F5Th(formatNumber(p_), omp_get_thread_num());
                 
                 Bint m = (Bint(1) << p_) - 1;
                 if (mp::miller_rabin_test(m, 20)) {
@@ -128,7 +132,16 @@ void Lucas(Widget* ui) noexcept {
                     }
                 }
             }
-            
+            #pragma omp critical
+            {
+                std::this_thread::sleep_for(2s);
+                if (ui->endFlag) {
+                    ui->addLOG(QString::fromUtf8("演算を終了しました"));
+                } else {
+                    ui->addLOG(QString::fromUtf8("演算が終了しました"));
+                }
+            }
+            ui->ended = true;
         }
         #pragma omp section
         {
@@ -141,6 +154,20 @@ void Lucas(Widget* ui) noexcept {
                 {
                     emp = Mers.empty() || p.empty();
                 }
+                if (ui->endFlag) {
+                    if (!emp) {
+                        #pragma omp critical
+                        {
+                            mer_ = Mers.front();
+                            p_ = p.front();
+                            Mers.pop();
+                            p.pop();
+                            ui->addLOG(my::puts(mer_, p_, index));
+                        }
+                        continue;
+                    }
+                    break;
+                }
                 if (emp) {
                     std::this_thread::sleep_for(1s);
                     continue;
@@ -151,10 +178,26 @@ void Lucas(Widget* ui) noexcept {
                     p_ = p.front();
                     Mers.pop();
                     p.pop();
-                    string s = my::puts(mer_, p_, index);
-                    ui->addLOG(s);
+                    ui->addLOG(my::puts(mer_, p_, index));
                 }
                 ++index;
+            }
+        }
+        #pragma omp section
+        {
+            while (true) {
+                std::this_thread::sleep_for(1s);
+                HANDLE hProc = GetCurrentProcess();
+                PROCESS_MEMORY_COUNTERS_EX pmc;
+                BOOL isSuccess = GetProcessMemoryInfo(hProc, (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+                CloseHandle(hProc);
+                if (isSuccess == FALSE) continue;
+                if (pmc.WorkingSetSize > MAX_MEMORY) {
+                    ui->endFlag = true;
+                    qDebug() << QString::fromUtf8("使用メモリが32GBを超えました");
+                    std::this_thread::sleep_for(10s);
+                    break;
+                }
             }
         }
     }

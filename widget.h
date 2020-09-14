@@ -42,6 +42,7 @@
 #include <queue>
 #include <condition_variable>
 #include <sstream>
+#include <psapi.h>
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/multiprecision/miller_rabin.hpp>
 #include <boost/format.hpp>
@@ -57,7 +58,6 @@ using Real = mp::mpf_float;
 using namespace std::chrono_literals;
 using uint = unsigned int;
 
-
 class Widget : public QWidget, public Ui::Widget {
     Q_OBJECT
 
@@ -70,7 +70,11 @@ class Widget : public QWidget, public Ui::Widget {
         void addLOG(const string& src) noexcept;
         void addLOG(const QString& qs) noexcept;
         void addLOG(const char* const cs) noexcept;
-		void F5Th(const string& s) noexcept;
+		void F5Th(const string& s, const int id) noexcept;
+		int getThreadNums() const noexcept
+		{	return ThreadNums; }
+		std::atomic<bool> endFlag = false;
+		std::atomic<bool> ended = false;
 
 	protected:
 
@@ -82,12 +86,18 @@ class Widget : public QWidget, public Ui::Widget {
 	public slots:
 		void updateLOG() noexcept;
 		void updateTh() noexcept;
+		void updatePriority(int num) noexcept;
+		void SetThreads() noexcept;
 
 	private:
 		QTimer* ThProgress;
 		string logs;
         std::thread mainThread;
-		string Th_string;
+		std::vector<string> Th_string;
+		std::vector<QTextEdit*> Ths;
+		std::array<DWORD, 5> PriorityClass;
+		int ThreadNums;
+		const char* const Data_File_Name = "ThreadData.txt";
 
 };
 
