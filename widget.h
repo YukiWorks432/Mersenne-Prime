@@ -37,6 +37,7 @@
 #include <omp.h>
 #include <fstream>
 #include <array>
+#include <list>
 #include <chrono>
 #include <wchar.h>
 #include <queue>
@@ -57,6 +58,13 @@ using Bint = mp::mpz_int;
 using Real = mp::mpf_float;
 using namespace std::chrono_literals;
 using uint = unsigned int;
+using ull = unsigned long long int;
+
+struct MER_DATA_INFO {
+	ull p_start;
+	ull index_start;
+	int thread_nums;
+};
 
 class Widget : public QWidget, public Ui::Widget {
     Q_OBJECT
@@ -71,10 +79,12 @@ class Widget : public QWidget, public Ui::Widget {
         void addLOG(const QString& qs) noexcept;
         void addLOG(const char* const cs) noexcept;
 		void F5Th(const string& s, const int id) noexcept;
-		int getThreadNums() const noexcept
-		{	return ThreadNums; }
+		constexpr inline int getThreadNums() const noexcept
+		{	return mer_data_info_real.thread_nums;		}
+
 		std::atomic<bool> endFlag = false;
 		std::atomic<bool> ended = false;
+		std::list<ull> p_data;
 
 	protected:
 
@@ -87,7 +97,6 @@ class Widget : public QWidget, public Ui::Widget {
 		void updateLOG() noexcept;
 		void updateTh() noexcept;
 		void updatePriority(int num) noexcept;
-		void SetThreads() noexcept;
 
 	private:
 		QTimer* ThProgress;
@@ -96,11 +105,12 @@ class Widget : public QWidget, public Ui::Widget {
 		std::vector<string> Th_string;
 		std::vector<QTextEdit*> Ths;
 		std::array<DWORD, 5> PriorityClass;
-		int ThreadNums;
-		const char* const Data_File_Name = "ThreadData.txt";
+		MER_DATA_INFO mer_data_info_real;
+		const char* const Data_File_Name = "MersennePrimeData.ympdb";
+		const char* const History = "MersennePrimeHistory.txt";
 
 };
 
-void Lucas(Widget* ui) noexcept;
+void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept;
 
 #endif // EXAMPLE_WIDGET_H_

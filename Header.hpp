@@ -101,27 +101,30 @@ namespace my {
     }
 }
 
-constexpr unsigned long long P_START    = 3;                //43'112'609;
-constexpr unsigned long long P_END      = 82'589'933 + 16;  //82'589'933 is 51st, according to Wikipedia.
-
-void Lucas(Widget* ui) noexcept {
+void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
+    constexpr ull P_END = 82'589'933 + 16;  //82'589'933 is 51st, according to Wikipedia.
     std::queue<Bint> Mers;
-    std::queue<unsigned long> p;
-    constexpr unsigned long long MAX_MEMORY = 1024ull * 1024ull * 1024ull * 32ull;
+    std::queue<ull> p;
+    constexpr ull MAX_MEMORY = 1024ull * 1024ull * 1024ull * 32ull;
 
     omp_set_nested(true);
 
-    Mers.push(3);
-    p.push(2);
+    if (P_START == 3) {
+        ui->addLOG(my::puts(3, 2, 1));
+    }
     #pragma omp parallel sections num_threads(3)
     {
         #pragma omp section
         {
             omp_set_num_threads(ui->getThreadNums());
             #pragma omp parallel for schedule(dynamic)
-            for (unsigned long long p_ = P_START; p_ < P_END; p_ += 2) {
-                if (ui->endFlag) continue;
-                if ((p_ + 1) % 10 == 0) ui->F5Th(formatNumber(p_), omp_get_thread_num());
+            for (ull p_ = P_START; p_ < P_END; p_ += 2) {
+                #pragma omp cancel for if(ui->endFlag)
+                #pragma omp cancellation point for
+                if ((p_ + 1) % 10 == 0) {
+                    #pragma omp critical
+                    ui->F5Th(formatNumber(p_), omp_get_thread_num());
+                }
                 
                 Bint m = (Bint(1) << p_) - 1;
                 if (mp::miller_rabin_test(m, 20)) {
@@ -145,9 +148,9 @@ void Lucas(Widget* ui) noexcept {
         }
         #pragma omp section
         {
-            Bint p_;
+            ull p_;
             Bint mer_;
-            uint_fast32_t index = 1;
+            uint_fast32_t index = INDEX_START;
             while (true) {
                 bool emp;
                 #pragma omp critical
@@ -162,9 +165,14 @@ void Lucas(Widget* ui) noexcept {
                             p_ = p.front();
                             Mers.pop();
                             p.pop();
+                            ui->p_data.push_back(p_);
                             ui->addLOG(my::puts(mer_, p_, index));
                         }
                         continue;
+                    }
+                    #pragma omp critical
+                    {
+                        ui->addLOG("LOGの更新が終了しました");
                     }
                     break;
                 }
@@ -178,6 +186,7 @@ void Lucas(Widget* ui) noexcept {
                     p_ = p.front();
                     Mers.pop();
                     p.pop();
+                    ui->p_data.push_back(p_);
                     ui->addLOG(my::puts(mer_, p_, index));
                 }
                 ++index;

@@ -35,7 +35,7 @@ class Fonts {
 };
 
 void error_stop() {
-    MessageBox(NULL, "Error!!!", "Error!!!", MB_OK);
+    MessageBoxA(NULL, "Error!!!", "Error!!!", MB_OK);
     exit(EXIT_FAILURE);
 }
 
