@@ -85,7 +85,7 @@ class Widget : public QWidget, public Ui::Widget {
 		std::atomic<bool> endFlag = false;
 		std::atomic<bool> ended = false;
 		std::list<ull> p_data;
-		ull last_p;
+		ull *last_p;
 		ull last_index;
 
 	protected:

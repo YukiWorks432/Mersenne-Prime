@@ -9,6 +9,15 @@ Widget::Widget(QWidget *parent) : QWidget(parent), ThProgress(new QTimer) {
 	connect(this, SIGNAL(changeLOG()), this, SLOT(updateLOG()));
 	connect(ThProgress, SIGNAL(timeout()), this, SLOT(updateTh()));
 	connect(Priority, SIGNAL(currentIndexChanged(int)), this, SLOT(updatePriority(int)));
+
+	std::fstream hist(History, std::ios::in);
+	if (hist) {
+		string buf;
+		while(std::getline(hist, buf)) {
+			qDebug() << buf.c_str();
+			p_data.push_back(std::stoull(buf));
+		}
+	}
 	
 	std::fstream data(Data_File_Name, std::ios::in | std::ios::binary);
 	if (data) {
@@ -36,12 +45,15 @@ Widget::Widget(QWidget *parent) : QWidget(parent), ThProgress(new QTimer) {
 	for (int i = 0; i < 16; ++i) {
 		Th_string[i] = "\0";
 	}
-	p_data.resize(50);
+
+	last_p = new ull[mer_data_info_real.thread_nums];
 
 	ThreadNum->setText(QString::number(mer_data_info_real.thread_nums));
 	ThreadNum->update();
+
 	updateTh();
 	updatePriority(0);
+	
 	ThProgress->start(10);
     mainThread = std::thread(Lucas, this, mer_data_info_real.p_start, mer_data_info_real.index_start);
 }
@@ -54,8 +66,9 @@ void Widget::closeEvent(QCloseEvent *e) noexcept {
 	p_data.sort();
 	std::fstream data(Data_File_Name, std::ios::out | std::ios::binary);
 	if (data) {
+		std::sort(last_p, last_p + mer_data_info_real.thread_nums);
 		MER_DATA_INFO d__;
-		d__.p_start = last_p;
+		d__.p_start = last_p[0];
 		d__.index_start = last_index;
 		d__.thread_nums = std::stoi(ThreadNum->toPlainText().toStdString());
 		data.write(reinterpret_cast<char *>(&d__), sizeof(d__));
@@ -64,7 +77,7 @@ void Widget::closeEvent(QCloseEvent *e) noexcept {
 		qDebug() << QString::fromUtf8("データファイルが開けません");
 	}
 
-	std::fstream hist(History, std::ios::app);
+	std::fstream hist(History, std::ios::out);
 	for (auto itr = p_data.begin(); itr != p_data.end(); itr++) {
 		if (*itr == 0) continue;
 		hist << *itr << std::endl;

@@ -105,7 +105,6 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
     constexpr ull P_END = 82'589'933 + 16;  //82'589'933 is 51st, according to Wikipedia.
     std::queue<Bint> Mers;
     std::queue<ull> p;
-    std::queue<ull> all_p;
     constexpr ull MAX_MEMORY = 1024ull * 1024ull * 1024ull * 32ull;
 
     omp_set_nested(true);
@@ -122,7 +121,9 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
             for (ull p_ = P_START; p_ < P_END; p_ += 2) {
                 #pragma omp cancel for if(ui->endFlag)
                 #pragma omp cancellation point for
-                if ((p_ + 1) % 10 == 0) {
+                #pragma omp critical
+                    ui->last_p[omp_get_thread_num()] = p_;
+                if ((p_ + 1) % (p_ < 10'000 ? 10 : 2) == 0) {
                     #pragma omp critical
                     ui->F5Th(formatNumber(p_), omp_get_thread_num());
                 }
@@ -136,8 +137,6 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
                         p.push(p_);
                     }
                 }
-                #pragma omp critical
-                all_p.push(p_);
             }
             #pragma omp critical
             {
@@ -155,11 +154,9 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
             ull index = INDEX_START;
             while (true) {
                 bool emp;
-                bool all_p_emp;
                 #pragma omp critical
                 {
                     emp = Mers.empty() || p.empty();
-                    all_p_emp = all_p.empty();
                 }
                 if (ui->endFlag) {
                     if (!emp) {
@@ -174,30 +171,15 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
                         }
                         continue;
                     }
-                    if (!all_p_emp) {
-                        #pragma omp critical
-                        {
-                            ui->last_p = all_p.front();
-                            all_p.pop();
-                        }
-                        continue;
-                    }
                     #pragma omp critical
                     {
                         ui->addLOG("LOGの更新が終了しました");
                     }
                     break;
                 }
-                if (emp && all_p_emp) {
+                if (emp) {
                     std::this_thread::sleep_for(1s);
                     continue;
-                }
-                if (!all_p_emp) {
-                    #pragma omp critical
-                    {
-                        ui->last_p = all_p.front();
-                        all_p.pop();
-                    }
                 }
                 if (!emp) {
                     #pragma omp critical
