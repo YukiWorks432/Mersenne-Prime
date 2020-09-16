@@ -55,8 +55,8 @@ void Widget::closeEvent(QCloseEvent *e) noexcept {
 	std::fstream data(Data_File_Name, std::ios::out | std::ios::binary);
 	if (data) {
 		MER_DATA_INFO d__;
-		d__.p_start = p_data.back();
-		d__.index_start = p_data.size();
+		d__.p_start = last_p;
+		d__.index_start = last_index;
 		d__.thread_nums = std::stoi(ThreadNum->toPlainText().toStdString());
 		data.write(reinterpret_cast<char *>(&d__), sizeof(d__));
 		data.close();

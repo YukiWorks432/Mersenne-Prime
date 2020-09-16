@@ -105,6 +105,7 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
     constexpr ull P_END = 82'589'933 + 16;  //82'589'933 is 51st, according to Wikipedia.
     std::queue<Bint> Mers;
     std::queue<ull> p;
+    std::queue<ull> all_p;
     constexpr ull MAX_MEMORY = 1024ull * 1024ull * 1024ull * 32ull;
 
     omp_set_nested(true);
@@ -125,6 +126,7 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
                     #pragma omp critical
                     ui->F5Th(formatNumber(p_), omp_get_thread_num());
                 }
+                if (mp::miller_rabin_test(p_, 5));
                 
                 Bint m = (Bint(1) << p_) - 1;
                 if (mp::miller_rabin_test(m, 20)) {
@@ -134,6 +136,8 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
                         p.push(p_);
                     }
                 }
+                #pragma omp critical
+                all_p.push(p_);
             }
             #pragma omp critical
             {
@@ -148,25 +152,33 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
         }
         #pragma omp section
         {
-            ull p_;
-            Bint mer_;
-            uint_fast32_t index = INDEX_START;
+            ull index = INDEX_START;
             while (true) {
                 bool emp;
+                bool all_p_emp;
                 #pragma omp critical
                 {
                     emp = Mers.empty() || p.empty();
+                    all_p_emp = all_p.empty();
                 }
                 if (ui->endFlag) {
                     if (!emp) {
                         #pragma omp critical
                         {
-                            mer_ = Mers.front();
-                            p_ = p.front();
+                            const ull p_ = p.front();
+                            ui->p_data.push_back(p_);
+                            ui->addLOG(my::puts(Mers.front(), p_, index));
                             Mers.pop();
                             p.pop();
-                            ui->p_data.push_back(p_);
-                            ui->addLOG(my::puts(mer_, p_, index));
+                            ui->last_index = index;
+                        }
+                        continue;
+                    }
+                    if (!all_p_emp) {
+                        #pragma omp critical
+                        {
+                            ui->last_p = all_p.front();
+                            all_p.pop();
                         }
                         continue;
                     }
@@ -176,20 +188,29 @@ void Lucas(Widget* ui, const ull P_START, const ull INDEX_START) noexcept {
                     }
                     break;
                 }
-                if (emp) {
+                if (emp && all_p_emp) {
                     std::this_thread::sleep_for(1s);
                     continue;
                 }
-                #pragma omp critical
-                {
-                    mer_ = Mers.front();
-                    p_ = p.front();
-                    Mers.pop();
-                    p.pop();
-                    ui->p_data.push_back(p_);
-                    ui->addLOG(my::puts(mer_, p_, index));
+                if (!all_p_emp) {
+                    #pragma omp critical
+                    {
+                        ui->last_p = all_p.front();
+                        all_p.pop();
+                    }
                 }
-                ++index;
+                if (!emp) {
+                    #pragma omp critical
+                    {
+                        const ull p_ = p.front();
+                        ui->p_data.push_back(p_);
+                        ui->addLOG(my::puts(Mers.front(), p_, index));
+                        Mers.pop();
+                        p.pop();
+                        ui->last_index = index;
+                    }
+                    ++index;
+                }
             }
         }
         #pragma omp section
